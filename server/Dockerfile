@@ -1,33 +1,24 @@
-# --- Tahap 1: Build (Memasang dependensi) ---
-# Gunakan versi Node.js yang stabil
-FROM node:22-alpine AS builder
+# server/Dockerfile
 
-# Atur direktori kerja di dalam container
-WORKDIR /app
-
-# Salin package.json dan package-lock.json
-COPY package.json package-lock.json* ./
-
-# Instal hanya dependensi produksi (lebih cepat dan lebih kecil)
-RUN npm ci --only=production
-
-# Salin sisa kode sumber Anda
-COPY . .
-
-# --- Tahap 2: Rilis (Menjalankan server) ---
+# Gunakan Node.js versi 22 (sesuai log Anda)
 FROM node:22-alpine
 
+# Set direktori kerja di dalam container
 WORKDIR /app
 
-# Salin node_modules yang sudah diinstal dari tahap 'builder'
-COPY --from=builder /app/node_modules ./node_modules
-# Salin kode aplikasi dari tahap 'builder'
-COPY --from=builder /app ./
+# 1. Salin package.json dari FOLDER 'server'
+# Konteks build adalah root, jadi kita tambahkan 'server/' di depannya
+COPY server/package*.json ./
 
-# Railway akan menyediakan variabel $PORT
-# 'EXPOSE' memberi tahu Docker port mana yang akan didengarkan
-EXPOSE $PORT
+# 2. Install dependencies
+RUN npm install
 
-# Perintah untuk menjalankan aplikasi Anda
-# Ini akan menjalankan "start": "node src/server.js" dari package.json Anda
-CMD [ "npm", "start" ]
+# 3. Salin SELURUH folder 'server' (termasuk 'src/') ke '.' (yaitu /app)
+COPY server/ .
+
+# 4. Expose port
+EXPOSE 5001
+
+# 5. Jalankan server
+# Karena kita menyalin seluruh folder 'server', path-nya sekarang benar
+CMD ["node", "src/server.js"]
