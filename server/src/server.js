@@ -27,7 +27,7 @@ const PORT = process.env.PORT || 5001;
 // Ganti 'https://url-frontend-vercel-anda.vercel.app' dengan URL Vercel Anda nanti
 const whitelist = [
   'http://localhost:5173', // Ganti 5173 jika port frontend lokal Anda berbeda
-  'https://url-frontend-vercel-anda.vercel.app' 
+  'sistem-manajemen-kemasan-production.up.railway.app' 
 ];
 
 const corsOptions = {
