@@ -6,13 +6,24 @@ const Role = require('../models/Role'); // <-- Impor model Role (Mongoose)
 // Inisialisasi Firebase Admin
 if (admin.apps.length === 0) {
   try {
-    const serviceAccount = require('../config/firebase-service-account.json');
-    admin.initializeApp({
-      credential: admin.credential.cert(serviceAccount)
-    });
+    // Cek apakah kita di server produksi (Railway)
+    if (process.env.FIREBASE_SERVICE_ACCOUNT) {
+      // Baca JSON dari environment variable
+      const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
+      admin.initializeApp({
+        credential: admin.credential.cert(serviceAccount)
+      });
+      console.log('Firebase Admin diinisialisasi dari Environment Variable.');
+    } else {
+      // Jika tidak, kita di lokal, gunakan file
+      const serviceAccount = require('../config/firebase-service-account.json');
+      admin.initializeApp({
+        credential: admin.credential.cert(serviceAccount)
+      });
+      console.log('Firebase Admin diinisialisasi dari file lokal.');
+    }
   } catch (error) {
     console.error("Gagal inisialisasi Firebase Admin:", error.message);
-    // Ini adalah error fatal, server tidak boleh lanjut jika config Firebase salah
     process.exit(1); 
   }
 }
