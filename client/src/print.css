@@ -1,0 +1,32 @@
+/* client/src/print.css */
+
+/* Ini adalah 'magic' utamanya */
+@media print {
+  
+  /* 1. Sembunyikan semua elemen di body secara default SAAT CETAK */
+  body * {
+    visibility: hidden;
+  }
+
+  /* 2. Tentukan area yang ingin kita cetak */
+  /* Kita akan beri kelas '.print-area' pada invoice kita */
+  .print-area, .print-area * {
+    visibility: visible;
+  }
+
+  /* 3. Posisikan area cetak ke bagian paling atas halaman */
+  .print-area {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    margin: 0;
+    padding: 0;
+  }
+  
+  /* 4. Sembunyikan elemen UI di dalam invoice yang tidak ingin dicetak */
+  /* (Kita tidak punya, tapi ini contoh) */
+  .no-print {
+    display: none;
+  }
+}

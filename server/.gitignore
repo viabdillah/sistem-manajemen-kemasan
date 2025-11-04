@@ -1,0 +1,4 @@
+./src/config/firebase-service-account.json
+.env
+node_modules
+npm-debug.log

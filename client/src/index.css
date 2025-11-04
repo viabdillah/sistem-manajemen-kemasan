@@ -1,0 +1,16 @@
+@import "tailwindcss";
+
+@keyframes customFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-custom-fade-in {
+  animation: customFadeIn 0.5s ease-out;
+}
