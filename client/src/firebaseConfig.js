@@ -2,14 +2,14 @@
 import { initializeApp } from "firebase/app";
 import { getAuth } from "firebase/auth";
 
-// Objek konfigurasi yang Anda dapatkan dari Firebase Console
+// Ambil nilai dari Environment Variables (client/.env.development)
 const firebaseConfig = {
-  apiKey: "AIzaSyC7q2UdZ0SintSiJf0xiGJX16LVuQgo8JE",
-  authDomain: "pusat-kemasan.firebaseapp.com",
-  projectId: "pusat-kemasan",
-  storageBucket: "pusat-kemasan.firebasestorage.app",
-  messagingSenderId: "824829619583",
-  appId: "1:824829619583:web:338470867b5683cbb8fe4a"
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+  appId: import.meta.env.VITE_FIREBASE_APP_ID
 };
 
 // Inisialisasi Firebase

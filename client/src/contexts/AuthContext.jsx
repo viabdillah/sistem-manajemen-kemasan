@@ -1,6 +1,6 @@
 // client/src/contexts/AuthContext.jsx
 
-/* eslint-disable react-refresh/only-export-components */ // <-- PERBAIKAN BUG 1
+/* eslint-disable react-refresh/only-export-components */
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { auth } from '../firebaseConfig';
