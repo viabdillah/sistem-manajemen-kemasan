@@ -1,1 +1,10 @@
-server/src/config/firebase-service-account.json
+# File rahasia yang tidak boleh dipublikasikan
+
+# Untuk frontend (client)
+/client/.env*
+
+# Untuk backend (server)
+/server/.env
+
+# Kunci Firebase Admin (jika Anda tidak menghapusnya)
+/server/src/config/firebase-service-account.json
