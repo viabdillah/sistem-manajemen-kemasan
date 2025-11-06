@@ -6,7 +6,7 @@ WORKDIR /usr/src/app
 
 # Copy package files first to leverage caching
 # Railway will handle running npm install based on the package.json
-COPY ./package.json .
+COPY . /app
 
 # Run install dependencies (This is the critical step for Railway)
 RUN npm install --only=production
