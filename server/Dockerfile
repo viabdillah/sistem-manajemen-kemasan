@@ -2,7 +2,7 @@
 FROM node:22-alpine
 
 # Set working directory inside the container
-WORKDIR /usr/src/app
+WORKDIR /app
 
 # Copy package files first to leverage caching
 # Railway will handle running npm install based on the package.json
