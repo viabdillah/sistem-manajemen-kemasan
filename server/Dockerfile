@@ -9,13 +9,13 @@ WORKDIR /usr/src/app
 
 # Salin package.json dan package-lock.json dari root build context
 # Karena Root Dir = server, ini menyalin server/package.json
-COPY package*.json ./
+COPY server/package*.json ./
 
 # Jalankan instalasi dependensi
 RUN npm install --only=production
 
 # Salin seluruh isi folder server/ ke working directory
-COPY . .
+COPY server/ .
 
 # Expose the port used by the Express server
 EXPOSE 5001
