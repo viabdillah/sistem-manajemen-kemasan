@@ -1,49 +1,51 @@
 // client/src/components/financials/AddTransactionModal.jsx
-import React, { useState, useCallback } from 'react';
-import { auth } from '../../firebaseConfig';
-import toast from 'react-hot-toast';
+import React, { useState, useCallback } from "react";
+// --- HAPUS: import { auth } from '../../firebaseConfig'; ---
+import toast from "react-hot-toast";
 
-// 1. Definisikan API_URL
+// 1. Definisikan API_URL (tidak berubah)
 const API_URL = import.meta.env.VITE_API_BASE_URL;
 
 const AddTransactionModal = ({ isOpen, onClose, onSaveSuccess }) => {
-  const [type, setType] = useState('pemasukan');
-  const [description, setDescription] = useState('');
+  const [type, setType] = useState("pemasukan");
+  const [description, setDescription] = useState("");
   const [amount, setAmount] = useState(0);
   const [loading, setLoading] = useState(false);
 
-  const getAuthToken = useCallback(async () => {
-    const user = auth.currentUser;
-    if (!user) throw new Error('Anda tidak terautentikasi');
-    return await user.getIdToken();
+  // --- 2. GANTI LOGIKA getAuthToken ---
+  // Gunakan JWT dari localStorage
+  const getAuthToken = useCallback(() => {
+    const token = localStorage.getItem("authToken");
+    if (!token) throw new Error("Anda tidak terautentikasi (Token tidak ada)");
+    return token;
   }, []);
 
-  // 2. Perbarui 'handleSubmit'
+  // 3. Perbarui 'handleSubmit'
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
-    const toastId = toast.loading('Menyimpan transaksi...');
+    const toastId = toast.loading("Menyimpan transaksi...");
 
     try {
-      const token = await getAuthToken();
-      // Perbarui panggilan fetch
+      const token = getAuthToken(); // <-- Hapus 'await'
+
       const response = await fetch(`${API_URL}/api/keuangan/transactions`, {
-        method: 'POST',
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({ type, description, amount: Number(amount) })
+        body: JSON.stringify({ type, description, amount: Number(amount) }),
       });
 
       const data = await response.json();
-      if (!response.ok) throw new Error(data.message || 'Gagal menyimpan');
+      if (!response.ok) throw new Error(data.message || "Gagal menyimpan");
 
       toast.success(data.message, { id: toastId });
       onSaveSuccess();
-      setDescription('');
+      setDescription("");
       setAmount(0);
-      setType('pemasukan');
+      setType("pemasukan");
       onClose();
     } catch (error) {
       toast.error(error.message, { id: toastId });
@@ -54,19 +56,26 @@ const AddTransactionModal = ({ isOpen, onClose, onSaveSuccess }) => {
 
   if (!isOpen) return null;
 
+  // --- Sisa JSX di bawah ini sudah benar (tidak berubah) ---
   return (
     <>
-      <div className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm" onClick={onClose}></div>
+      <div
+        className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm"
+        onClick={onClose}
+      ></div>
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-        <div 
+        <div
           className="bg-white rounded-xl shadow-2xl w-full max-w-md p-6 animate-fade-in"
-          onClick={(e) => e.stopPropagation()} 
+          onClick={(e) => e.stopPropagation()}
         >
-          <h2 className="text-2xl font-bold text-gray-800 mb-6">Catat Transaksi Manual</h2>
+          <h2 className="text-2xl font-bold text-gray-800 mb-6">
+            Catat Transaksi Manual
+          </h2>
           <form onSubmit={handleSubmit} className="space-y-4">
-            {/* ... (Input fields tidak berubah) ... */}
             <div>
-              <label className="block text-sm font-medium text-gray-700">Jenis Transaksi</label>
+              <label className="block text-sm font-medium text-gray-700">
+                Jenis Transaksi
+              </label>
               <select
                 value={type}
                 onChange={(e) => setType(e.target.value)}
@@ -77,7 +86,9 @@ const AddTransactionModal = ({ isOpen, onClose, onSaveSuccess }) => {
               </select>
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700">Keterangan</label>
+              <label className="block text-sm font-medium text-gray-700">
+                Keterangan
+              </label>
               <input
                 type="text"
                 value={description}
@@ -87,7 +98,9 @@ const AddTransactionModal = ({ isOpen, onClose, onSaveSuccess }) => {
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700">Jumlah (Rp)</label>
+              <label className="block text-sm font-medium text-gray-700">
+                Jumlah (Rp)
+              </label>
               <input
                 type="number"
                 value={amount}
@@ -97,11 +110,20 @@ const AddTransactionModal = ({ isOpen, onClose, onSaveSuccess }) => {
               />
             </div>
             <div className="flex justify-end gap-3 pt-4">
-              <button type="button" onClick={onClose} disabled={loading} className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200">
+              <button
+                type="button"
+                onClick={onClose}
+                disabled={loading}
+                className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200"
+              >
                 Batal
               </button>
-              <button type="submit" disabled={loading} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-400">
-                {loading ? 'Menyimpan...' : 'Simpan Transaksi'}
+              <button
+                type="submit"
+                disabled={loading}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-400"
+              >
+                {loading ? "Menyimpan..." : "Simpan Transaksi"}
               </button>
             </div>
           </form>

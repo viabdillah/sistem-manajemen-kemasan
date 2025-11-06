@@ -1,208 +1,182 @@
 // client/src/pages/LoginPage.jsx
-import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-// --- Impor Firebase Auth Baru ---
-import { 
-  GoogleAuthProvider, 
-  signInWithPopup, 
-  signInWithEmailAndPassword,
-  sendPasswordResetEmail
-} from 'firebase/auth';
-import { auth } from '../firebaseConfig'; // Impor auth dari config
-import { FaGoogle, FaEnvelope } from 'react-icons/fa'; // Impor ikon baru
-import { useAuth } from '../contexts/AuthContext';
-import toast from 'react-hot-toast'; // Kita akan gunakan toast untuk Lupa Sandi
+import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import { useAuth } from "../contexts/AuthContext";
+import toast from "react-hot-toast";
+import { BsEye, BsEyeSlash, BsEnvelope, BsLock } from "react-icons/bs";
 
-// HAPUS: const RECAPTCHA_SITE_KEY = ...
+const API_URL = import.meta.env.VITE_API_BASE_URL;
 
 const LoginPage = () => {
-  // --- State Baru ---
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  // --- Akhir State Baru ---
-  
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
-  
-  // HAPUS: const recaptchaRef = useRef();
-  // HAPUS: const [isRecaptchaVerified, setIsRecaptchaVerified] = useState(false);
-
   const navigate = useNavigate();
-  const googleProvider = new GoogleAuthProvider();
-  const { currentUser } = useAuth();
+  const { currentUser, login } = useAuth();
 
-  // Efek untuk redirect jika user sudah login (tidak berubah)
+  // Efek untuk redirect (tidak berubah)
   useEffect(() => {
     if (currentUser) {
+      // ... (Logika redirect Anda)
       const role = currentUser.role_name;
       switch (role) {
-        case 'admin_sistem': navigate('/admin/dashboard'); break;
-        case 'kasir': navigate('/kasir'); break;
-        case 'operator': navigate('/operator/antrian'); break;
-        case 'desainer': navigate('/desainer/antrian'); break;
-        case 'manajer': navigate('/manajer/dashboard'); break;
-        default: navigate('/unauthorized');
+        case "admin_sistem":
+          navigate("/admin/dashboard");
+          break;
+        case "kasir":
+          navigate("/kasir");
+          break;
+        case "operator":
+          navigate("/operator/antrian");
+          break;
+        case "desainer":
+          navigate("/desainer/antrian");
+          break;
+        case "manajer":
+          navigate("/manajer/dashboard");
+          break;
+        default:
+          navigate("/unauthorized");
       }
     }
   }, [currentUser, navigate]);
 
-  // HAPUS: onRecaptchaChange dan onRecaptchaExpired
-
-  // --- Fungsi Baru: Login Email/Password ---
-  const handleEmailLogin = async (e) => {
-    e.preventDefault(); // Mencegah form submit
+  // Fungsi login (tidak berubah)
+  const handleLogin = async (e) => {
+    e.preventDefault();
     setLoading(true);
-    setError('');
-
+    const toastId = toast.loading("Login...");
     try {
-      // Panggil fungsi login Firebase
-      await signInWithEmailAndPassword(auth, email, password);
-      // Login berhasil.
-      // 'onAuthStateChanged' di AuthContext akan otomatis
-      // mendeteksi ini, memverifikasi role, dan redirect.
-    } catch (firebaseError) {
-      // Menangani error Firebase
-      if (firebaseError.code === 'auth/wrong-password' || firebaseError.code === 'auth/user-not-found') {
-        setError('Email atau password salah.');
-      } else if (firebaseError.code === 'auth/invalid-credential') {
-        setError('Email atau password salah.');
-      }
-      else {
-        setError(firebaseError.message);
-      }
-      setLoading(false);
-    }
-    // Kita tidak perlu 'finally' karena halaman akan redirect jika sukses
-  };
-
-  // --- Fungsi Revisi: Login Google (hapus reCAPTCHA) ---
-  const handleGoogleLogin = async () => {
-    // HAPUS: Pengecekan 'isRecaptchaVerified'
-    
-    setLoading(true);
-    setError('');
-
-    try {
-      await signInWithPopup(auth, googleProvider);
-      // 'onAuthStateChanged' di AuthContext akan menangani sisanya
-    } catch (error) {
-      console.error("Error saat login Google:", error);
-      setError(error.message || 'Terjadi kesalahan saat login.');
+      await login(email, password);
+      toast.success("Login berhasil!", { id: toastId });
+    } catch (err) {
+      toast.error(err.message || "Email atau password salah.", { id: toastId });
       setLoading(false);
     }
   };
 
-  // --- Fungsi Baru: Lupa Kata Sandi ---
+  // Fungsi Lupa Kata Sandi (tidak berubah)
   const handleForgotPassword = async () => {
     if (!email) {
-      setError('Mohon masukkan email Anda di kolom email untuk reset password.');
+      toast.error(
+        "Mohon masukkan email Anda di kolom email untuk meminta reset."
+      );
       return;
     }
-    const toastId = toast.loading('Mengirim link reset password...');
+    setLoading(true);
+    const toastId = toast.loading("Mengirim permintaan reset...");
     try {
-      await sendPasswordResetEmail(auth, email);
-      toast.success('Link reset password telah dikirim ke email Anda!', { id: toastId });
-      setError('');
-    } catch (error) {
-      toast.error(error.message, { id: toastId });
+      const response = await fetch(`${API_URL}/api/auth/forgot-password`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.message || "Gagal");
+      toast.success("Permintaan reset terkirim. Hubungi Admin.", {
+        id: toastId,
+        duration: 5000,
+      });
+    } catch (err) {
+      toast.error(err.message, { id: toastId });
+    } finally {
+      setLoading(false);
     }
   };
 
-
-  // Tampilkan "Mengarahkan..." jika user sudah login (tidak berubah)
-  if (currentUser) {
-    return (
-      <div className="min-h-screen w-full flex items-center justify-center bg-gray-100 p-4">
-        <p className="text-gray-700 text-xl">Mengarahkan...</p>
-      </div>
-    );
-  }
-
-  // --- JSX (Layout) Revisi Total ---
   return (
-    <div className="min-h-screen w-full flex items-center justify-center bg-gradient-to-r from-blue-500 to-purple-600 p-4">
-      
-      <div className="bg-white rounded-xl shadow-2xl p-8 md:p-12 w-full max-w-md text-center animate-fade-in">
-        
-        <h1 className="text-3xl font-bold text-gray-800 mb-4">
-          Selamat Datang
-        </h1>
-        <p className="text-gray-600 mb-8">
-          Sistem Manajemen Kemasan
-        </p>
+    // --- 1. PERUBAHAN BACKGROUND ---
+    // Mengganti kontainer utama menjadi background statis (normal)
+    <div className="min-h-screen flex items-center justify-center p-4 bg-gray-100">
+      {/* --- HAPUS: Background Gradien Animasi & Blob --- */}
 
-        {/* Form Login Email/Password */}
-        <form onSubmit={handleEmailLogin} className="space-y-4">
+      {/* Form Login dengan animasi 'fade-in-up' (tetap ada) */}
+      <div
+        className="login-form-animation relative z-10 bg-white 
+           p-8 rounded-2xl shadow-xl w-full max-w-md"
+      >
+        <div className="text-center mb-8">
+          <h1 className="text-4xl font-extrabold text-gray-900 mb-2">
+            Selamat Datang
+          </h1>
+          <p className="text-gray-600">Sistem Manajemen Kemasan</p>
+        </div>
+
+        <form onSubmit={handleLogin} className="space-y-6">
           {/* Input Email */}
-          <input
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            placeholder="Email"
-            required
-            className="w-full px-4 py-3 border border-gray-300 rounded-lg text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
-          />
+          <div className="relative">
+            <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400">
+              <BsEnvelope size={18} />
+            </span>
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="Email"
+              required
+              // --- 2. TAMBAHAN ANIMASI HOVER & FOKUS ---
+              className="w-full pl-12 pr-4 py-3 border border-gray-300 rounded-lg 
+             focus:ring-2 focus:ring-blue-500 focus:outline-none 
+             transition-all duration-300 ease-in-out transform 
+             hover:scale-[1.02] hover:border-blue-400
+             focus:scale-[1.02]"
+            />
+          </div>
+
           {/* Input Password */}
-          <input
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            placeholder="Password"
-            required
-            className="w-full px-4 py-3 border border-gray-300 rounded-lg text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
-          />
-          
-          {/* Link Lupa Password */}
+          <div className="relative">
+            <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400">
+              <BsLock size={18} />
+            </span>
+            <input
+              type={showPassword ? "text" : "password"}
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="Password"
+              required
+              // --- 2. TAMBAHAN ANIMASI HOVER & FOKUS ---
+              className="w-full pl-12 pr-12 py-3 border border-gray-300 rounded-lg 
+             focus:ring-2 focus:ring-blue-500 focus:outline-none 
+             transition-all duration-300 ease-in-out transform 
+             hover:scale-[1.02] hover:border-blue-400
+             focus:scale-[1.02]"
+            />
+            {/* Tombol Lihat Password (tidak berubah) */}
+            <button
+              type="button"
+              onClick={() => setShowPassword(!showPassword)}
+              className="absolute inset-y-0 right-0 pr-4 flex items-center text-gray-500 hover:text-gray-700 cursor-pointer"
+              title={showPassword ? "Sembunyikan" : "Tampilkan"}
+            >
+              {showPassword ? <BsEyeSlash size={20} /> : <BsEye size={20} />}
+            </button>
+          </div>
+
+          {/* Lupa Password (tidak berubah) */}
           <div className="text-right">
             <button
-              type="button" // Penting agar tidak submit form
+              type="button"
               onClick={handleForgotPassword}
-              className="text-sm font-medium text-blue-600 hover:underline"
+              disabled={loading}
+              className="text-sm font-medium text-blue-600 hover:underline disabled:text-gray-400"
             >
               Lupa Kata Sandi?
             </button>
           </div>
-          
-          {/* Tombol Login Email */}
+
+          {/* Tombol Submit */}
           <button
             type="submit"
             disabled={loading}
-            className={`w-full flex items-center justify-center gap-3 px-4 py-3
-                      font-semibold text-white rounded-lg shadow-lg
-                      transition-all duration-300 ease-in-out
-                      ${loading ? 'bg-gray-400' : 'bg-blue-600 hover:bg-blue-700'}`}
+            // --- 2. TAMBAHAN ANIMASI HOVER & CLICK ---
+            className="w-full px-4 py-3 font-semibold text-white bg-blue-600 rounded-lg 
+           hover:bg-blue-700 shadow-lg transition-all duration-300 transform 
+           hover:scale-105 active:scale-95 disabled:bg-gray-400"
           >
-            <FaEnvelope className="w-5 h-5" />
-            <span>{loading ? 'Memverifikasi...' : 'Login dengan Email'}</span>
+            {loading ? "Memverifikasi..." : "Masuk"}
           </button>
         </form>
-
-        {/* Divider "atau" */}
-        <div className="my-6 flex items-center">
-          <div className="flex-grow border-t border-gray-300"></div>
-          <span className="flex-shrink mx-4 text-gray-500">atau</span>
-          <div className="flex-grow border-t border-gray-300"></div>
-        </div>
-
-        {/* Tombol Login Google */}
-        <button
-          onClick={handleGoogleLogin}
-          disabled={loading}
-          className={`w-full flex items-center justify-center gap-3 px-4 py-3
-                    font-semibold text-gray-700 bg-white border border-gray-300 
-                    rounded-lg shadow-lg transition-all duration-300 ease-in-out
-                    hover:bg-gray-100 disabled:bg-gray-200`}
-        >
-          <FaGoogle className="w-5 h-5 text-red-500" />
-          <span>Login dengan Google</span>
-        </button>
-
-        {/* HAPUS: Komponen reCAPTCHA */}
-        
-        {/* Tampilan Error */}
-        {error && (
-          <p className="text-red-500 text-sm mt-6 animate-fade-in">{error}</p>
-        )}
       </div>
     </div>
   );

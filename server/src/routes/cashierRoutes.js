@@ -2,46 +2,39 @@
 const express = require('express');
 const router = express.Router();
 
-// 1. Impor fungsi (getProductsList sudah dihapus)
+// 1. Impor controller (tidak berubah)
 const { 
-  createCustomer,
-  getCustomersList,
-  createNewOrder,
-  getOrderHistory,
-  processPayment,
-  getOrderDetailsForInvoice,
-  getCashierDashboardStats
+  createCustomer,
+  getCustomersList,
+  createNewOrder,
+  getOrderHistory,
+  processPayment,
+  getOrderDetailsForInvoice,
+  getCashierDashboardStats
 } = require('../controllers/cashierController');
 
-const { verifyFirebaseToken, isCashier, isFinanceAllowed } = require('../middleware/authMiddleware');
+// 2. Impor middleware BARU
+const { 
+  protect, // <-- Ganti 'verifyFirebaseToken'
+  isCashier, 
+  isFinanceAllowed 
+} = require('../middleware/authMiddleware');
 
-// Pasang middleware keamanan untuk SEMUA rute kasir
-router.use(verifyFirebaseToken, isCashier);
-router.post('/orders', verifyFirebaseToken, isCashier, createNewOrder);
+// --- 3. PASANG MIDDLEWARE PERLINDUNGAN JWT (Global) ---
+// Semua rute di file ini sekarang WAJIB memiliki token JWT yang valid.
+router.use(protect);
 
-// Middleware keamanan: isFinanceAllowed (bisa dilihat Admin, Kasir, Manajer)
-router.get('/customers', verifyFirebaseToken, isFinanceAllowed, getCustomersList);
-router.get('/orders', verifyFirebaseToken, isFinanceAllowed, getOrderHistory);
+// --- 4. Terapkan Middleware Peran (Spesifik per Rute) ---
 
-// --- Rute-rute Kasir ---
-router.get('/dashboard-stats', verifyFirebaseToken, isCashier, getCashierDashboardStats);
+// Rute-rute ini HANYA untuk KASIR (dan Admin)
+router.get('/dashboard-stats', isCashier, getCashierDashboardStats);
+router.post('/customers', isCashier, createCustomer); // Membuat pelanggan baru
+router.post('/orders', isCashier, createNewOrder); // Membuat pesanan baru
 
-// POST /api/kasir/customers (Membuat pelanggan baru)
-router.post('/customers', createCustomer);
-
-// GET /api/kasir/customers (Mengambil daftar pelanggan)
-router.get('/customers', getCustomersList);
-
-// POST /api/kasir/orders (Membuat pesanan baru)
-router.post('/orders', createNewOrder);
-
-// GET /api/kasir/orders (Mengambil riwayat pesanan)
-router.get('/orders', getOrderHistory);
-
-// PUT /api/kasir/pay/:orderId (Tombol "Bayar")
-router.put('/pay/:orderId', verifyFirebaseToken, isFinanceAllowed, processPayment);
-
-// GET /api/kasir/orders/:orderId/details (Untuk melihat 1 invoice)
-router.get('/orders/:orderId/details', verifyFirebaseToken, isFinanceAllowed, getOrderDetailsForInvoice);
+// Rute-rute ini untuk KEUANGAN (Admin, Kasir, Manajer)
+router.get('/customers', isFinanceAllowed, getCustomersList); // Melihat daftar pelanggan
+router.get('/orders', isFinanceAllowed, getOrderHistory); // Melihat riwayat pesanan
+router.put('/pay/:orderId', isFinanceAllowed, processPayment); // Memproses pembayaran
+router.get('/orders/:orderId/details', isFinanceAllowed, getOrderDetailsForInvoice); // Melihat invoice
 
 module.exports = router;

@@ -2,28 +2,25 @@
 const express = require('express');
 const router = express.Router();
 const {
-  getAllUsers,
-  getAssignableRoles,
-  updateUserRole,
-  cancelOrder,
-  getAdminDashboardStats,
-  editUser,
-  deleteUser,
-  sendPasswordReset
+  getAllUsers,
+  getAssignableRoles,
+  cancelOrder,
+  getAdminDashboardStats,
+  editUser,
+  deleteUser,
+  sendPasswordReset,
+  createNewUser // <-- 1. Impor controller baru
 } = require('../controllers/adminController');
 
 const {
-  verifyFirebaseToken,
-  isAdminSystem,
+  protect, 
+  isAdminSystem,
 } = require('../middleware/authMiddleware');
 
-// --- Rute yang Dilindungi ---
-// Semua rute di file ini akan:
-// 1. Memverifikasi token Firebase (verifyFirebaseToken)
-// 2. Memastikan user adalah 'admin_sistem' (isAdminSystem)
-
 // Pasang middleware untuk SEMUA rute di bawah ini
-router.use(verifyFirebaseToken, isAdminSystem);
+router.use(protect, isAdminSystem);
+
+// --- Rute-rute yang ada ---
 
 router.get('/dashboard-stats', getAdminDashboardStats);
 
@@ -33,13 +30,20 @@ router.get('/users', getAllUsers);
 // GET /api/admin/roles
 router.get('/roles', getAssignableRoles);
 
-// PUT /api/admin/users/:userId/role
-// :userId adalah ID dari database (misal: 5), BUKAN UID firebase
+// PUT /api/admin/users/:userId/edit
 router.put('/users/:userId/edit', editUser);
 
+// DELETE /api/admin/users/:userId
 router.delete('/users/:userId', deleteUser);
+
+// POST /api/admin/users/reset-password
 router.post('/users/reset-password', sendPasswordReset);
 
+// --- 2. Tambahkan Rute Baru di Sini ---
+// POST /api/admin/users/create (Endpoint untuk AddUserModal)
+router.post('/users/create', createNewUser);
+
+// PUT /api/admin/orders/:orderId/cancel
 router.put('/orders/:orderId/cancel', cancelOrder);
 
 module.exports = router;

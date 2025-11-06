@@ -1,16 +1,16 @@
 // client/src/pages/designer/DesignerQueuePage.jsx
-import React, { useState, useEffect, useCallback } from 'react';
-import { auth } from '../../firebaseConfig';
-import toast from 'react-hot-toast';
-import { BsCheckCircleFill } from 'react-icons/bs';
+import React, { useState, useEffect, useCallback } from "react";
+// --- HAPUS: import { auth } from '../../firebaseConfig'; ---
+import toast from "react-hot-toast";
+import { BsCheckCircleFill } from "react-icons/bs";
 
-// 1. Definisikan API_URL
+// 1. Definisikan API_URL (tidak berubah)
 const API_URL = import.meta.env.VITE_API_BASE_URL;
 
 // Komponen Detail Item (tidak berubah)
 const ItemDetails = ({ items }) => (
   <ul className="list-disc list-inside space-y-2 text-sm text-gray-700">
-    {items.map(item => (
+    {items.map((item) => (
       <li key={item.id}>
         <strong>{item.product_name}</strong> (Qty: {item.quantity})
         {!item.has_design ? (
@@ -35,22 +35,24 @@ const DesignerQueuePage = () => {
   const [queue, setQueue] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  const getAuthToken = useCallback(async () => {
-    const user = auth.currentUser;
-    if (!user) throw new Error('Anda tidak terautentikasi');
-    return await user.getIdToken();
+  // --- 2. GANTI LOGIKA getAuthToken ---
+  // Gunakan JWT dari localStorage
+  const getAuthToken = useCallback(() => {
+    const token = localStorage.getItem("authToken");
+    if (!token) throw new Error("Anda tidak terautentikasi (Token tidak ada)");
+    return token;
   }, []);
 
-  // 2. Perbarui 'fetchData'
+  // 3. Perbarui 'fetchData'
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
-      const token = await getAuthToken();
-      // Perbarui panggilan fetch
+      const token = getAuthToken(); // <-- Hapus 'await'
+
       const response = await fetch(`${API_URL}/api/desainer/queue`, {
-        headers: { Authorization: `Bearer ${token}` }
+        headers: { Authorization: `Bearer ${token}` },
       });
-      if (!response.ok) throw new Error('Gagal mengambil antrian desain');
+      if (!response.ok) throw new Error("Gagal mengambil antrian desain");
       const data = await response.json();
       setQueue(data);
     } catch (err) {
@@ -58,25 +60,28 @@ const DesignerQueuePage = () => {
     } finally {
       setLoading(false);
     }
-  }, [getAuthToken]); // Hapus API_URL dari dependensi
+  }, [getAuthToken]);
 
   useEffect(() => {
     fetchData();
   }, [fetchData]);
 
-  // 3. Perbarui 'handleSendToProduction'
+  // 4. Perbarui 'handleSendToProduction'
   const handleSendToProduction = async (orderId) => {
-    const toastId = toast.loading('Mengirim ke operator produksi...');
+    const toastId = toast.loading("Mengirim ke operator produksi...");
     try {
-      const token = await getAuthToken();
-      // Perbarui panggilan fetch
-      const response = await fetch(`${API_URL}/api/desainer/send-to-production/${orderId}`, {
-        method: 'PUT',
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      const token = getAuthToken(); // <-- Hapus 'await'
+
+      const response = await fetch(
+        `${API_URL}/api/desainer/send-to-production/${orderId}`,
+        {
+          method: "PUT",
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
       const data = await response.json();
-      if (!response.ok) throw new Error(data.message || 'Gagal mengirim');
-      
+      if (!response.ok) throw new Error(data.message || "Gagal mengirim");
+
       toast.success(data.message, { id: toastId });
       fetchData(); // Muat ulang data antrian
     } catch (err) {
@@ -89,7 +94,7 @@ const DesignerQueuePage = () => {
   return (
     <div className="p-4 md:p-6 animate-fade-in space-y-6">
       <h1 className="text-3xl font-bold text-gray-800">Antrian Desain</h1>
-      
+
       <div className="p-6 rounded-xl shadow-lg bg-yellow-100 text-yellow-800">
         <p className="text-sm font-medium">Pekerjaan Menunggu Konfirmasi</p>
         <p className="text-4xl font-bold">{queue.length}</p>
@@ -100,23 +105,41 @@ const DesignerQueuePage = () => {
         <table className="min-w-full divide-y divide-gray-200">
           <thead className="bg-gray-50">
             <tr>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">No. Pesanan</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Pelanggan</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Detail Item & Status Desain</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Aksi</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                No. Pesanan
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                Pelanggan
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                Detail Item & Status Desain
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                Aksi
+              </th>
             </tr>
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
             {queue.length === 0 ? (
-              <tr><td colSpan="4" className="px-6 py-4 text-center text-gray-500">Tidak ada pekerjaan di antrian.</td></tr>
+              <tr>
+                <td colSpan="4" className="px-6 py-4 text-center text-gray-500">
+                  Tidak ada pekerjaan di antrian.
+                </td>
+              </tr>
             ) : (
               queue.map((order) => {
-                const needsNewDesign = order.items.some(item => !item.has_design);
-                
+                const needsNewDesign = order.items.some(
+                  (item) => !item.has_design
+                );
+
                 return (
                   <tr key={order.id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{order.order_number}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{order.customer_name}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                      {order.order_number}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                      {order.customer_name}
+                    </td>
                     <td className="px-6 py-4 text-sm text-gray-600">
                       <ItemDetails items={order.items} />
                     </td>
@@ -124,14 +147,17 @@ const DesignerQueuePage = () => {
                       <button
                         onClick={() => handleSendToProduction(order.id)}
                         className={`flex items-center gap-2 px-4 py-2 text-xs font-semibold rounded-lg shadow
-                                    text-white transition-colors
-                                    ${needsNewDesign 
-                                      ? 'bg-blue-600 hover:bg-blue-700'
-                                      : 'bg-green-600 hover:bg-green-700'
-                                    }`}
+                  text-white transition-colors
+                 ${
+                   needsNewDesign
+                     ? "bg-blue-600 hover:bg-blue-700"
+                     : "bg-green-600 hover:bg-green-700"
+                 }`}
                       >
                         <BsCheckCircleFill />
-                        {needsNewDesign ? 'Selesai Desain & Kirim' : 'Konfirmasi & Kirim'}
+                        {needsNewDesign
+                          ? "Selesai Desain & Kirim"
+                          : "Konfirmasi & Kirim"}
                       </button>
                     </td>
                   </tr>

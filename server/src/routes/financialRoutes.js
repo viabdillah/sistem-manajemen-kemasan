@@ -2,17 +2,23 @@
 const express = require('express');
 const router = express.Router();
 const { 
-  getAllTransactions, 
-  createManualTransaction,
-  getSalesChartData
+  getAllTransactions, 
+  createManualTransaction,
+  getSalesChartData
 } = require('../controllers/financialController');
+
+// --- 1. IMPOR MIDDLEWARE BARU ---
 const { 
-  verifyFirebaseToken, 
-  isFinanceAllowed 
+  protect, // <-- Ganti 'verifyFirebaseToken'
+  isFinanceAllowed 
 } = require('../middleware/authMiddleware');
 
+// --- 2. PASANG MIDDLEWARE BARU ---
 // Lindungi semua rute keuangan
-router.use(verifyFirebaseToken, isFinanceAllowed);
+// Pertama, cek token JWT (protect), lalu pastikan perannya sesuai (isFinanceAllowed)
+router.use(protect, isFinanceAllowed);
+
+// --- Rute-rute ini sekarang aman dengan JWT ---
 
 // GET /api/keuangan/transactions
 router.get('/transactions', getAllTransactions);

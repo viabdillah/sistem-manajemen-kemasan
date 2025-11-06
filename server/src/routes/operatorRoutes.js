@@ -2,13 +2,19 @@
 const express = require('express');
 const router = express.Router();
 const controller = require('../controllers/operatorController');
+
+// --- 1. IMPOR MIDDLEWARE BARU ---
 const { 
-  verifyFirebaseToken, 
-  isOperator 
+  protect, // <-- Ganti 'verifyFirebaseToken'
+  isOperator 
 } = require('../middleware/authMiddleware');
 
+// --- 2. PASANG MIDDLEWARE BARU ---
 // Lindungi semua rute
-router.use(verifyFirebaseToken, isOperator);
+// Pertama, cek token JWT (protect), lalu pastikan perannya adalah Operator (isOperator)
+router.use(protect, isOperator);
+
+// --- Rute-rute ini sekarang aman dengan JWT ---
 
 // GET /api/operator/queue (Antrian baru)
 router.get('/queue', controller.getProductionQueue);

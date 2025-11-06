@@ -1,11 +1,11 @@
 // client/src/pages/admin/ManageUsersPage.jsx
-import React, { useState, useEffect, useCallback } from 'react';
-import { auth } from '../../firebaseConfig';
-import toast from 'react-hot-toast';
-import EditUserModal from '../../components/admin/EditUserModal.jsx'; // Pastikan .jsx ada
-import { BsPencil, BsTrash } from 'react-icons/bs';
+import React, { useState, useEffect, useCallback } from "react";
+import toast from "react-hot-toast";
+import EditUserModal from "../../components/admin/EditUserModal.jsx";
+import ResetPasswordModal from "../../components/admin/ResetPasswordModal.jsx";
+import AddUserModal from "../../components/admin/AddUserModal.jsx"; // <-- 1. Impor Modal Baru
+import { BsPencil, BsTrash, BsKey, BsFillPersonPlusFill } from "react-icons/bs"; // <-- 2. Ganti Ikon
 
-// 1. Definisikan API_URL menggunakan environment variable
 const API_URL = import.meta.env.VITE_API_BASE_URL;
 
 const ManageUsersPage = () => {
@@ -13,109 +13,128 @@ const ManageUsersPage = () => {
   const [roles, setRoles] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [isModalOpen, setIsModalOpen] = useState(false);
+
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState(null);
 
-  const getAuthToken = useCallback(async () => {
-    const user = auth.currentUser;
-    if (!user) throw new Error('Admin tidak terautentikasi');
-    return await user.getIdToken();
+  const [isResetModalOpen, setIsResetModalOpen] = useState(false);
+  const [userToReset, setUserToReset] = useState(null);
+
+  // --- 3. State Baru untuk Modal Tambah ---
+  const [isAddUserModalOpen, setIsAddUserModalOpen] = useState(false);
+
+  // (Fungsi getAuthToken, fetchData, modal edit, modal reset tidak berubah)
+  const getAuthToken = useCallback(() => {
+    const token = localStorage.getItem("authToken");
+    if (!token) throw new Error("Admin tidak terautentikasi (Token tidak ada)");
+    return token;
   }, []);
 
-  // 2. Perbarui 'fetchData'
   const fetchData = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const token = await getAuthToken();
+      const token = getAuthToken();
       const headers = { Authorization: `Bearer ${token}` };
-
-      // 2a. Perbarui fetch users
-      const usersRes = await fetch(`${API_URL}/api/admin/users`, { headers });
-      if (!usersRes.ok) throw new Error('Gagal mengambil data pengguna');
+      const [usersRes, rolesRes] = await Promise.all([
+        fetch(`${API_URL}/api/admin/users`, { headers }),
+        fetch(`${API_URL}/api/admin/roles`, { headers }),
+      ]);
+      if (!usersRes.ok) throw new Error("Gagal mengambil data pengguna");
+      if (!rolesRes.ok) throw new Error("Gagal mengambil data roles");
       const usersData = await usersRes.json();
-      setUsers(usersData);
-
-      // 2b. Perbarui fetch roles
-      const rolesRes = await fetch(`${API_URL}/api/admin/roles`, { headers });
-      if (!rolesRes.ok) throw new Error('Gagal mengambil data roles');
       const rolesData = await rolesRes.json();
+      setUsers(usersData);
       setRoles(rolesData);
-
     } catch (err) {
       setError(err.message);
       toast.error(err.message);
     } finally {
       setLoading(false);
     }
-  }, [getAuthToken]); // getAuthToken tidak bergantung pada API_URL
+  }, [getAuthToken]);
 
   useEffect(() => {
     fetchData();
   }, [fetchData]);
 
-  const handleOpenModal = (user) => {
+  const handleOpenEditModal = (user) => {
     setSelectedUser(user);
-    setIsModalOpen(true);
+    setIsEditModalOpen(true);
   };
-
-  const handleCloseModal = () => {
+  const handleCloseEditModal = () => {
     setSelectedUser(null);
-    setIsModalOpen(false);
+    setIsEditModalOpen(false);
   };
 
-  // 3. Perbarui 'handleSaveEdit'
-  const handleSaveEdit = async (userId, newFullName, newRoleId) => {
-    const toastId = toast.loading('Menyimpan perubahan...');
-    try {
-      const token = await getAuthToken();
-      
-      const response = await fetch(`${API_URL}/api/admin/users/${userId}/edit`, { // Perbarui fetch
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({ 
-          full_name: newFullName,
-          role_id: newRoleId 
-        }),
-      });
+  const handleOpenResetModal = (user) => {
+    setUserToReset(user);
+    setIsResetModalOpen(true);
+  };
+  const handleCloseResetModal = () => {
+    setUserToReset(null);
+    setIsResetModalOpen(false);
+  };
 
-      if (!response.ok) throw new Error('Gagal memperbarui pengguna');
-      
-      toast.success('Pengguna berhasil diperbarui!', { id: toastId });
-      handleCloseModal();
-      fetchData(); 
+  // --- 4. Handler Baru untuk Modal Tambah ---
+  const handleOpenAddUserModal = () => {
+    setIsAddUserModalOpen(true);
+  };
+  const handleCloseAddUserModal = () => {
+    setIsAddUserModalOpen(false);
+  };
+
+  // (handleSaveEdit dan handleDeleteUser tetap sama)
+  const handleSaveEdit = async (userId, newFullName, newRoleId) => {
+    const toastId = toast.loading("Menyimpan perubahan...");
+    try {
+      const token = getAuthToken();
+      const response = await fetch(
+        `${API_URL}/api/admin/users/${userId}/edit`,
+        {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({ full_name: newFullName, role_id: newRoleId }),
+        }
+      );
+      if (!response.ok) throw new Error("Gagal memperbarui pengguna");
+      toast.success("Pengguna berhasil diperbarui!", { id: toastId });
+      handleCloseEditModal();
+      fetchData();
     } catch (err) {
       toast.error(err.message, { id: toastId });
     }
   };
 
-  // 4. Perbarui 'handleDeleteUser'
   const handleDeleteUser = (user) => {
     toast(
       (t) => (
         <div className="flex flex-col gap-3">
-          <p>Anda yakin ingin menonaktifkan <strong>{user.full_name}</strong>?</p>
-          <p className="text-sm text-gray-600">Pengguna ini tidak akan bisa login lagi.</p>
+          <p>
+            Anda yakin ingin menonaktifkan <strong>{user.full_name}</strong>?
+          </p>
           <div className="flex gap-2">
             <button
               onClick={async () => {
                 toast.dismiss(t.id);
-                const toastId = toast.loading('Menonaktifkan pengguna...');
+                const toastId = toast.loading("Menonaktifkan pengguna...");
                 try {
-                  const token = await getAuthToken();
-                  const response = await fetch(`${API_URL}/api/admin/users/${user.id}`, { // Perbarui fetch
-                    method: 'DELETE',
-                    headers: { Authorization: `Bearer ${token}` }
-                  });
-                  if (!response.ok) throw new Error('Gagal');
-                  
-                  toast.success('Pengguna dinonaktifkan', { id: toastId });
+                  const token = getAuthToken();
+                  const response = await fetch(
+                    `${API_URL}/api/admin/users/${user._id}`,
+                    {
+                      method: "DELETE",
+                      headers: { Authorization: `Bearer ${token}` },
+                    }
+                  );
+                  if (!response.ok) throw new Error("Gagal");
+                  toast.success("Pengguna dinonaktifkan", { id: toastId });
                   fetchData();
                 } catch (err) {
-                  toast.error(err.message || 'Gagal', { id: toastId });
+                  toast.error(err.message, { id: toastId });
                 }
               }}
               className="w-full px-3 py-2 bg-red-600 text-white text-sm rounded-lg font-semibold"
@@ -130,8 +149,56 @@ const ManageUsersPage = () => {
             </button>
           </div>
         </div>
-      ), { duration: 60000 }
+      ),
+      { duration: 60000 }
     );
+  };
+
+  // (handleConfirmResetPassword tetap sama)
+  const handleConfirmResetPassword = async (userId, newPassword) => {
+    const toastId = toast.loading("Mereset password pengguna...");
+    try {
+      const token = getAuthToken();
+      const response = await fetch(
+        `${API_URL}/api/admin/users/reset-password`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({ userId, newPassword }),
+        }
+      );
+      if (!response.ok) throw new Error("Gagal mereset password");
+      toast.success("Password berhasil direset!", { id: toastId });
+      fetchData();
+    } catch (err) {
+      toast.error(err.message, { id: toastId });
+      throw err; // Lempar error agar modal tahu
+    }
+  };
+
+  // --- 5. Handler untuk Menyimpan User Baru ---
+  const handleAddNewUser = async (formData) => {
+    // Fungsi ini akan melempar error jika gagal, agar modal bisa menampilkannya
+    const token = getAuthToken();
+
+    const response = await fetch(`${API_URL}/api/admin/users/create`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(formData),
+    });
+
+    const data = await response.json();
+    if (!response.ok) {
+      throw new Error(data.message || "Gagal mendaftarkan pengguna");
+    }
+
+    fetchData(); // Refresh tabel setelah sukses
   };
 
   if (loading) return <div className="p-4">Loading data...</div>;
@@ -139,27 +206,54 @@ const ManageUsersPage = () => {
 
   return (
     <div className="p-4 md:p-6 animate-fade-in">
-      <h1 className="text-3xl font-bold text-gray-800 mb-6">Kelola Pengguna</h1>
-      
+      {/* --- 6. HEADER DIPERBARUI (Tombol "Tambah Pengguna Baru") --- */}
+      <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4 mb-6">
+        <h1 className="text-3xl font-bold text-gray-800">Kelola Pengguna</h1>
+        <button
+          onClick={handleOpenAddUserModal} // <-- Aksi baru
+          className="flex items-center justify-center gap-2 px-4 py-2 bg-green-600 text-white 
+           rounded-lg font-semibold shadow-lg hover:bg-green-700 
+           transition-all duration-300 transform hover:scale-105"
+        >
+          <BsFillPersonPlusFill /> {/* <-- Ikon baru */}
+          Tambah Pengguna Baru {/* <-- Teks baru */}
+        </button>
+      </div>
+
       <div className="bg-white shadow-lg rounded-xl overflow-hidden">
         <table className="min-w-full divide-y divide-gray-200">
           <thead className="bg-gray-50">
             <tr>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nama Lengkap</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Role Saat Ini</th>
-              <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Aksi</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Nama Lengkap
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Email
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Role
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Status
+              </th>
+              <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">
+                Aksi
+              </th>
             </tr>
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
             {users.map((user) => (
-              <tr key={user.id} className="hover:bg-gray-50">
-                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{user.full_name}</td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{user.email}</td>
+              <tr key={user._id} className="hover:bg-gray-50">
+                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                  {user.full_name}
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                  {user.email}
+                </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm">
                   {user.role_name ? (
                     <span className="px-3 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-800 capitalize">
-                      {user.role_name.replace('_', ' ')}
+                      {user.role_name.replace("_", " ")}
                     </span>
                   ) : (
                     <span className="px-3 py-1 text-xs font-semibold rounded-full bg-yellow-100 text-yellow-800">
@@ -167,9 +261,23 @@ const ManageUsersPage = () => {
                     </span>
                   )}
                 </td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm">
+                  {user.passwordResetRequested && (
+                    <span className="px-3 py-1 text-xs font-semibold rounded-full bg-red-100 text-red-800 animate-pulse">
+                      Minta Reset
+                    </span>
+                  )}
+                </td>
                 <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium space-x-3">
                   <button
-                    onClick={() => handleOpenModal(user)}
+                    onClick={() => handleOpenResetModal(user)}
+                    className="text-orange-600 hover:text-orange-900 transition-colors"
+                    title="Reset Password Pengguna"
+                  >
+                    <BsKey size={18} />
+                  </button>
+                  <button
+                    onClick={() => handleOpenEditModal(user)}
                     className="text-blue-600 hover:text-blue-900 transition-colors"
                     title="Edit Pengguna"
                   >
@@ -189,11 +297,24 @@ const ManageUsersPage = () => {
         </table>
       </div>
 
+      {/* --- 7. Tambahkan SEMUA Modal ke JSX --- */}
       <EditUserModal
-        isOpen={isModalOpen}
-        onClose={handleCloseModal}
+        isOpen={isEditModalOpen}
+        onClose={handleCloseEditModal}
         onSave={handleSaveEdit}
         user={selectedUser}
+        roles={roles}
+      />
+      <ResetPasswordModal
+        isOpen={isResetModalOpen}
+        onClose={handleCloseResetModal}
+        onConfirm={handleConfirmResetPassword}
+        user={userToReset}
+      />
+      <AddUserModal
+        isOpen={isAddUserModalOpen}
+        onClose={handleCloseAddUserModal}
+        onSave={handleAddNewUser}
         roles={roles}
       />
     </div>
