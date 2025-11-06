@@ -1,23 +1,24 @@
-# Stage 1: Build the image (using a smaller, production-ready base)
+# server/Dockerfile (Menggunakan WORKDIR yang berbeda untuk memastikan tidak ada konflik)
+
 FROM node:22-alpine
 
-# Set working directory inside the container
-WORKDIR /app
+# Set working directory to /usr/src/app
+WORKDIR /usr/src/app
 
-# Copy package files first to leverage caching
-# Railway will handle running npm install based on the package.json
-COPY . /app
+# === HINDARI COPY GAGAL: Salin dan Instal secara manual ===
 
-# Run install dependencies (This is the critical step for Railway)
+# Salin package.json dan package-lock.json dari root build context
+# Karena Root Dir = server, ini menyalin server/package.json
+COPY package*.json ./
+
+# Jalankan instalasi dependensi
 RUN npm install --only=production
 
-# Copy all application files
-# Exclude files listed in .dockerignore
+# Salin seluruh isi folder server/ ke working directory
 COPY . .
 
 # Expose the port used by the Express server
 EXPOSE 5001
 
 # Command to run the application
-# This uses your 'start' script defined in server/package.json
 CMD ["npm", "start"]
