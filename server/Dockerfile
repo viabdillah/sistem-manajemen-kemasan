@@ -1,24 +1,23 @@
-# server/Dockerfile
-
-# Gunakan Node.js versi 22 (sesuai log Anda)
+# Stage 1: Build the image (using a smaller, production-ready base)
 FROM node:22-alpine
 
-# Set direktori kerja di dalam container
-WORKDIR /app
+# Set working directory inside the container
+WORKDIR /usr/src/app
 
-# 1. Salin package.json dari FOLDER 'server'
-# Konteks build adalah root, jadi kita tambahkan 'server/' di depannya
-COPY server/package*.json ./
+# Copy package files first to leverage caching
+# Railway will handle running npm install based on the package.json
+COPY package*.json ./
 
-# 2. Install dependencies
-RUN npm install
+# Run install dependencies (This is the critical step for Railway)
+RUN npm install --only=production
 
-# 3. Salin SELURUH folder 'server' (termasuk 'src/') ke '.' (yaitu /app)
-COPY server/ .
+# Copy all application files
+# Exclude files listed in .dockerignore
+COPY . .
 
-# 4. Expose port
+# Expose the port used by the Express server
 EXPOSE 5001
 
-# 5. Jalankan server
-# Karena kita menyalin seluruh folder 'server', path-nya sekarang benar
-CMD ["node", "src/server.js"]
+# Command to run the application
+# This uses your 'start' script defined in server/package.json
+CMD ["npm", "start"]
