@@ -17,7 +17,7 @@ const CustomerManagement = () => {
 
   const fetchCustomers = useCallback(async () => {
     try {
-      const response = await fetch('${import.meta.env.VITE_API_URL}/api/customers');
+      const response = await fetch('/api/customers');
       const data = await response.json();
       setCustomers(data);
       setIsLoading(false);
@@ -36,7 +36,7 @@ const CustomerManagement = () => {
     e.preventDefault();
     
     try {
-      const response = await fetch('${import.meta.env.VITE_API_URL}/api/customers', {
+      const response = await fetch('/api/customers', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(formData)

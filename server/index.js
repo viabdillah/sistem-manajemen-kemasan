@@ -60,6 +60,14 @@ app.use('/api/transactions', transactionRoutes)
 
 // --------------
 
-app.listen(PORT, () => {
-  console.log(`🚀 Server running on port ${PORT}`);
+// Tambahkan Route Default untuk Cek Server
+app.get('/', (req, res) => {
+  res.send('Server is running ready for Vercel');
 });
+
+// PENTING: Logic agar jalan di Vercel DAN Localhost
+if (process.env.NODE_ENV !== 'production') {
+    app.listen(PORT, () => {
+        console.log(`🚀 Server running on port ${PORT}`);
+    });
+}

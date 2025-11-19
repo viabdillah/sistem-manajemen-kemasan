@@ -25,9 +25,9 @@ const CreateTransaction = () => {
     const loadData = async () => {
       try {
         const [custRes, prodRes, packRes] = await Promise.all([
-            fetch(`${import.meta.env.VITE_API_URL}/api/customers/${customerId}`),
-            fetch(`${import.meta.env.VITE_API_URL}/api/products/${customerId}`),
-            fetch('${import.meta.env.VITE_API_URL}/api/packaging-types')
+            fetch(`/api/customers/${customerId}`),
+            fetch(`/api/products/${customerId}`),
+            fetch('/api/packaging-types')
         ]);
         
         setCustomer(await custRes.json());
@@ -126,7 +126,7 @@ const CreateTransaction = () => {
     };
 
     try {
-        const res = await fetch('${import.meta.env.VITE_API_URL}/api/transactions', {
+        const res = await fetch('/api/transactions', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload)

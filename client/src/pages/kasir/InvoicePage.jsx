@@ -8,7 +8,7 @@ const InvoicePage = () => {
   const [trans, setTrans] = useState(null);
 
   useEffect(() => {
-    fetch(`${import.meta.env.VITE_API_URL}/api/transactions/${transactionId}`)
+    fetch(`/api/transactions/${transactionId}`)
       .then(res => res.json())
       .then(data => setTrans(data))
       .catch(err => console.error(err));

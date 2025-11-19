@@ -34,15 +34,15 @@ const CustomerProducts = () => {
   const fetchCustomerData = useCallback(async () => {
     setIsLoading(true);
     try {
-      const customerRes = await fetch(`${import.meta.env.VITE_API_URL}/api/customers/${customerId}`);
+      const customerRes = await fetch(`/api/customers/${customerId}`);
       const customerData = await customerRes.json();
       setCustomer(customerData);
 
-      const productRes = await fetch(`${import.meta.env.VITE_API_URL}/api/products/${customerId}`);
+      const productRes = await fetch(`/api/products/${customerId}`);
       const productData = await productRes.json();
       setProducts(productData);
       
-      const packagingRes = await fetch('${import.meta.env.VITE_API_URL}/api/packaging-types');
+      const packagingRes = await fetch('/api/packaging-types');
       const packagingRaw = await packagingRes.json();
       setPackagingTypesData(packagingRaw);
 
@@ -100,7 +100,7 @@ const CustomerProducts = () => {
 
     if (result.isConfirmed) {
         try {
-            const response = await fetch(`${import.meta.env.VITE_API_URL}/api/products/${id}`, { method: 'DELETE' });
+            const response = await fetch(`/api/products/${id}`, { method: 'DELETE' });
             if (response.ok) {
                 fetchCustomerData();
                 Swal.fire('Terhapus!', 'Produk berhasil dihapus.', 'success');
@@ -127,8 +127,8 @@ const CustomerProducts = () => {
       
       // Tentukan URL dan Method berdasarkan Mode
       const url = modalMode === 'add' 
-        ? '${import.meta.env.VITE_API_URL}/api/products' 
-        : `${import.meta.env.VITE_API_URL}/api/products/${selectedProductId}`;
+        ? '/api/products' 
+        : `/api/products/${selectedProductId}`;
       
       const method = modalMode === 'add' ? 'POST' : 'PUT';
 

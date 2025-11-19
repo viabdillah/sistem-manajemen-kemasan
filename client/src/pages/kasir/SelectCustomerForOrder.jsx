@@ -9,7 +9,7 @@ const SelectCustomerForOrder = () => {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    fetch('${import.meta.env.VITE_API_URL}/api/customers')
+    fetch('/api/customers')
       .then(res => res.json())
       .then(data => {
         setCustomers(data);
