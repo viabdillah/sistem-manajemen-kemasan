@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ChevronLeft, Plus, Trash2, Calculator, Save, ShoppingCart, FileImage, StickyNote } from 'lucide-react';
 import Swal from 'sweetalert2';
+import { supabase } from '../../services/supabaseClient'; // Import Supabase
 
 const CreateTransaction = () => {
   const { customerId } = useParams();
@@ -12,27 +13,29 @@ const CreateTransaction = () => {
   const [customerProducts, setCustomerProducts] = useState([]);
   const [packagingTypesData, setPackagingTypesData] = useState([]);
 
-  // Cart (Item yang dipilih)
+  // Keranjang Belanja
   const [cartItems, setCartItems] = useState([]);
   
   // Form Pembayaran States
-  const [paymentType, setPaymentType] = useState('pay_later');
-  const [paymentMethod, setPaymentMethod] = useState('Cash');
-  const [payAmount, setPayAmount] = useState(0);
+  const [paymentType, setPaymentType] = useState('pay_later'); 
+  const [paymentMethod, setPaymentMethod] = useState('Cash'); 
+  const [payAmount, setPayAmount] = useState(0); 
 
   // --- 1. FETCH DATA ---
   useEffect(() => {
     const loadData = async () => {
       try {
-        const [custRes, prodRes, packRes] = await Promise.all([
-            fetch(`/api/customers/${customerId}`),
-            fetch(`/api/products/${customerId}`),
-            fetch('/api/packaging-types')
-        ]);
-        
-        setCustomer(await custRes.json());
-        setCustomerProducts(await prodRes.json());
-        setPackagingTypesData(await packRes.json());
+        // A. Ambil Customer
+        const { data: cust } = await supabase.from('customers').select('*').eq('id', customerId).single();
+        setCustomer(cust);
+
+        // B. Ambil Produk (Ingat: field di DB snake_case)
+        const { data: prods } = await supabase.from('products').select('*').eq('customer_id', customerId).eq('is_deleted', false);
+        setCustomerProducts(prods || []);
+
+        // C. Ambil Master Kemasan
+        const { data: packs } = await supabase.from('packaging_types').select('*');
+        setPackagingTypesData(packs || []);
 
       } catch (error) {
         console.error('Gagal load data:', error);
@@ -42,45 +45,54 @@ const CreateTransaction = () => {
     loadData();
   }, [customerId]);
 
-  // --- 2. LOGIKA KERANJANG ---
   
+  // --- 2. LOGIKA KERANJANG ---
   const addToCart = (product) => {
-    const packType = packagingTypesData.find(p => p.name === product.packagingType);
-    const packSize = packType?.sizes.find(s => s.size === product.packagingSize);
-    const price = packSize ? packSize.price : 0;
+    // Cari harga dari Master Packaging
+    const packType = packagingTypesData.find(p => p.name === product.packaging_type);
+    const packSize = packType?.sizes.find(s => s.size === product.packaging_size);
+    const price = packSize ? parseInt(packSize.price) : 0;
 
-    // Cek duplikasi
-    const existingItemIndex = cartItems.findIndex(item => item.productId === product._id);
+    // Cek apakah item sudah ada di cart?
+    const existingItemIndex = cartItems.findIndex(item => item.productId === product.id);
 
     if (existingItemIndex >= 0) {
+        // Jika sudah ada, update qty
         const newCart = [...cartItems];
         newCart[existingItemIndex].qty += 1;
         newCart[existingItemIndex].subtotal = newCart[existingItemIndex].qty * price;
         setCartItems(newCart);
     } else {
+        // Jika belum, buat item baru
+        // PENTING: Di sinilah kita menyalin data dari Produk ke Keranjang
         const newItem = {
-            productId: product._id,
-            productName: product.productName,
-            packagingType: product.packagingType,
-            packagingSize: product.packagingSize,
+            productId: product.id,
+            productName: product.product_name,     // snake_case dari DB
+            packagingType: product.packaging_type, // snake_case dari DB
+            packagingSize: product.packaging_size, // snake_case dari DB
+            
+            // --- BAGIAN INI WAJIB DITAMBAHKAN AGAR DETAIL MUNCUL ---
+            // Kita petakan data dari Database (snake_case) ke state Keranjang (camelCase)
+            productLabel: product.product_label || '-',
+            nib: product.nib || '-',
+            noPirt: product.no_pirt || '-',
+            noHalal: product.no_halal || '-',
+            // ------------------------------------------------------
+
             pricePerUnit: price,
             qty: 1,
             subtotal: price,
-            // --- DATA DEFAULT BARU ---
-            hasDesign: true, // Default: Sudah ada desain
-            note: ''         // Default: Kosong
-            // -------------------------
+            hasDesign: true, 
+            note: ''         
         };
         setCartItems([...cartItems, newItem]);
     }
   };
 
-  // Fungsi umum untuk update field di dalam item cart
   const updateCartItem = (index, field, value) => {
     const newCart = [...cartItems];
     newCart[index][field] = value;
     
-    // Jika yang diubah qty, hitung ulang subtotal
     if (field === 'qty') {
         const qty = parseInt(value) || 0;
         if (qty < 0) return;
@@ -96,7 +108,7 @@ const CreateTransaction = () => {
     setCartItems(newCart);
   };
 
-  // --- 3. KALKULASI TOTAL ---
+  // --- 3. KALKULASI ---
   const totalTagihan = cartItems.reduce((sum, item) => sum + item.subtotal, 0);
 
   useEffect(() => {
@@ -105,9 +117,34 @@ const CreateTransaction = () => {
     } else if (paymentType === 'pay_later') {
       setPayAmount(0);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [paymentType, totalTagihan]);
 
+
+  // --- HELPER: GENERATE INVOICE NUMBER ---
+  const generateInvoiceNumber = async () => {
+    const date = new Date();
+    const yyyy = date.getFullYear();
+    const mm = String(date.getMonth() + 1).padStart(2, '0');
+    const dd = String(date.getDate()).padStart(2, '0');
+    const prefix = `INV-${yyyy}${mm}${dd}`;
+
+    // Cari invoice terakhir hari ini
+    const { data } = await supabase
+        .from('transactions')
+        .select('invoice_number')
+        .ilike('invoice_number', `${prefix}%`)
+        .order('created_at', { ascending: false })
+        .limit(1);
+
+    let sequence = '0001';
+    if (data && data.length > 0) {
+        const lastInv = data[0].invoice_number;
+        const lastSeq = parseInt(lastInv.split('-')[2]);
+        sequence = String(lastSeq + 1).padStart(4, '0');
+    }
+
+    return `${prefix}-${sequence}`;
+  };
 
   // --- 4. SUBMIT TRANSAKSI ---
   const handleCreateTransaction = async () => {
@@ -115,39 +152,75 @@ const CreateTransaction = () => {
     if (paymentType === 'dp' && payAmount <= 0) return Swal.fire('Nominal Salah', 'Nominal DP tidak boleh 0.', 'warning');
     if (payAmount > totalTagihan) return Swal.fire('Nominal Salah', 'Pembayaran melebihi total tagihan.', 'warning');
 
-    const payload = {
-        customerId,
-        items: cartItems,
-        firstPayment: {
-            amount: payAmount,
-            method: paymentMethod,
-            note: paymentType === 'full' ? 'Lunas Awal' : (paymentType === 'dp' ? 'Down Payment' : '')
-        }
-    };
-
     try {
-        const res = await fetch('/api/transactions', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload)
-        });
-        const data = await res.json();
-        
-        if (res.ok) {
-            Swal.fire({
-                title: 'Transaksi Berhasil!',
-                text: `No. Invoice: ${data.transaction.invoiceNumber}`,
-                icon: 'success',
-                showConfirmButton: false,
-                timer: 1500
-            }).then(() => {
-                navigate(`/invoice/${data.transaction._id}`);
+        // A. Generate Invoice
+        const invoiceNumber = await generateInvoiceNumber();
+
+        // B. Tentukan Status
+        const remaining = totalTagihan - payAmount;
+        let status = 'Pending'; // Untuk status pembayaran
+        if (payAmount > 0 && remaining > 0) status = 'Down Payment';
+        if (payAmount > 0 && remaining <= 0) status = 'Paid';
+
+        // C. Siapkan Array Pembayaran
+        const payments = [];
+        if (payAmount > 0) {
+            payments.push({
+                date: new Date().toISOString(),
+                amount: payAmount,
+                method: paymentMethod,
+                note: paymentType === 'full' ? 'Lunas Awal' : 'Down Payment'
             });
-        } else {
-            Swal.fire('Gagal', data.message, 'error');
         }
+
+        // D. Insert ke Supabase (Perhatikan field snake_case)
+        const payload = {
+            invoice_number: invoiceNumber,
+            customer_id: customerId,
+            items: cartItems, // JSONB otomatis
+            total_amount: totalTagihan,
+            total_paid: payAmount,
+            remaining_balance: remaining,
+            payments: payments, // JSONB otomatis
+            status: status,
+            order_status: 'Queue' // Default antrian desainer
+        };
+
+        const { data: trxData, error } = await supabase
+            .from('transactions')
+            .insert([payload])
+            .select()
+            .single();
+
+        if (error) throw error;
+
+        // --- INTEGRASI KEUANGAN OTOMATIS ---
+        // Jika ada pembayaran awal (DP atau Lunas), catat ke Finance Logs
+        if (payAmount > 0) {
+            await supabase.from('finance_logs').insert([{
+                type: 'income',
+                category: 'Penjualan',
+                amount: payAmount,
+                description: `Pembayaran Pesanan ${invoiceNumber} (${customer.name})`,
+                payment_method: paymentMethod,
+                transaction_id: trxData.id // Link ke ID transaksi
+            }]);
+        }
+        
+        Swal.fire({
+            title: 'Transaksi Berhasil!',
+            text: `No. Invoice: ${invoiceNumber}`,
+            icon: 'success',
+            showConfirmButton: false,
+            timer: 1500
+        }).then(() => {
+            // Karena kita belum migrasi halaman Invoice, kita kembali ke dashboard dulu
+            // Nanti ubah ke: navigate(`/invoice/${data.id}`);
+            navigate(`/`); 
+        });
+
     } catch (error) {
-        console.error('Submit error:', error);
+        console.error('Submit error:', error.message);
         Swal.fire('Error', 'Gagal memproses pesanan.', 'error');
     }
   };
@@ -193,15 +266,15 @@ const CreateTransaction = () => {
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                             {customerProducts.map(prod => (
                                 <div 
-                                    key={prod._id} 
+                                    key={prod.id} 
                                     onClick={() => addToCart(prod)}
                                     className="border border-gray-200 p-3 rounded-lg flex justify-between items-center hover:border-blue-400 hover:bg-blue-50 cursor-pointer transition group" 
                                 >
                                     <div>
-                                        <p className="font-bold text-gray-800 group-hover:text-blue-700">{prod.productName}</p>
+                                        <p className="font-bold text-gray-800 group-hover:text-blue-700">{prod.product_name}</p>
                                         <div className="text-xs text-gray-500 mt-1 flex gap-2">
-                                            <span className="bg-gray-100 px-1.5 py-0.5 rounded">{prod.packagingType}</span>
-                                            <span className="bg-gray-100 px-1.5 py-0.5 rounded">{prod.packagingSize}</span>
+                                            <span className="bg-gray-100 px-1.5 py-0.5 rounded">{prod.packaging_type}</span>
+                                            <span className="bg-gray-100 px-1.5 py-0.5 rounded">{prod.packaging_size}</span>
                                         </div>
                                     </div>
                                     <button className="bg-blue-100 text-blue-600 p-2 rounded-full group-hover:bg-blue-600 group-hover:text-white transition">
@@ -213,7 +286,7 @@ const CreateTransaction = () => {
                     )}
                 </div>
 
-                {/* 2. Keranjang Belanja (UPDATE UI) */}
+                {/* 2. Keranjang Belanja */}
                 <div className="bg-white p-5 rounded-xl shadow-sm border border-gray-200">
                     <h3 className="font-bold text-gray-700 mb-4">Rincian Pesanan</h3>
                     
@@ -225,8 +298,6 @@ const CreateTransaction = () => {
                         <div className="space-y-4">
                             {cartItems.map((item, idx) => (
                                 <div key={idx} className="border border-gray-200 rounded-lg p-4 hover:shadow-sm transition">
-                                    
-                                    {/* Baris Atas: Nama Produk & Harga & Hapus */}
                                     <div className="flex justify-between items-start mb-3">
                                         <div>
                                             <p className="font-bold text-gray-800 text-lg">{item.productName}</p>
@@ -245,10 +316,8 @@ const CreateTransaction = () => {
                                         </div>
                                     </div>
 
-                                    {/* Baris Bawah: Input Detail (Qty, Desain, Note) */}
+                                    {/* Input Detail */}
                                     <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-center bg-gray-50 p-3 rounded-lg">
-                                        
-                                        {/* Input Qty */}
                                         <div className="md:col-span-2">
                                             <label className="text-xs font-semibold text-gray-500 mb-1 block">Jumlah</label>
                                             <input 
@@ -259,8 +328,6 @@ const CreateTransaction = () => {
                                                 min="1"
                                             />
                                         </div>
-
-                                        {/* Pilihan Desain */}
                                         <div className="md:col-span-4">
                                             <label className="text-xs font-semibold text-gray-500 mb-1 block flex items-center gap-1">
                                                 <FileImage size={12}/> Status Desain
@@ -274,8 +341,6 @@ const CreateTransaction = () => {
                                                 <option value="false">Belum Ada Desain</option>
                                             </select>
                                         </div>
-
-                                        {/* Input Keterangan */}
                                         <div className="md:col-span-6">
                                             <label className="text-xs font-semibold text-gray-500 mb-1 block flex items-center gap-1">
                                                 <StickyNote size={12}/> Keterangan
@@ -283,20 +348,17 @@ const CreateTransaction = () => {
                                             <input 
                                                 type="text" 
                                                 className="w-full border rounded-md p-1.5 text-sm outline-none focus:border-blue-500"
-                                                placeholder="Cth: Laminasi doff, tambah logo..."
+                                                placeholder="Cth: Laminasi doff..."
                                                 value={item.note}
                                                 onChange={(e) => updateCartItem(idx, 'note', e.target.value)}
                                             />
                                         </div>
-
                                     </div>
-
                                 </div>
                             ))}
                         </div>
                     )}
                     
-                    {/* Subtotal Bar */}
                     <div className="mt-6 pt-4 border-t border-gray-200 flex justify-between items-center">
                         <span className="text-gray-600 font-medium text-lg">Total Tagihan</span>
                         <span className="text-2xl font-bold text-blue-700">Rp {totalTagihan.toLocaleString()}</span>
@@ -311,7 +373,6 @@ const CreateTransaction = () => {
                         <Calculator size={20} className="text-blue-600"/> Pembayaran
                     </h3>
 
-                    {/* Opsi Bayar */}
                     <div className="space-y-2 mb-5">
                         <label className="block text-xs font-bold text-gray-500 uppercase tracking-wide">Opsi Bayar</label>
                         <select 
@@ -329,7 +390,6 @@ const CreateTransaction = () => {
                         </select>
                     </div>
 
-                    {/* Metode Pembayaran */}
                     {paymentType !== 'pay_later' && (
                         <div className="space-y-2 mb-5 animate-fade-in">
                              <label className="block text-xs font-bold text-gray-500 uppercase tracking-wide">Metode Bayar</label>
@@ -350,7 +410,6 @@ const CreateTransaction = () => {
                         </div>
                     )}
 
-                    {/* Input Nominal */}
                     {paymentType !== 'pay_later' && (
                         <div className="mb-6 animate-fade-in">
                             <label className="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-2">
@@ -369,7 +428,6 @@ const CreateTransaction = () => {
                         </div>
                     )}
 
-                    {/* Rincian Akhir */}
                     <div className="bg-gray-50 p-4 rounded-xl text-sm space-y-3 mb-6 border border-gray-100">
                         <div className="flex justify-between text-gray-600">
                             <span>Tagihan</span>

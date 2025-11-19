@@ -1,43 +1,54 @@
-import { useState } from 'react'; // Hapus useEffect karena tidak butuh lagi
+import { useState } from 'react';
+// Import semua dashboard spesifik
+import ManagerDashboard from './manajer/ManagerDashboard';
+import ProductionDashboard from './operator/ProductionDashboard';
+import AdminDashboard from './admin/AdminDashboard';
+import CreateTransaction from './kasir/SelectCustomerForOrder'; 
 
 const Dashboard = () => {
-  // --- PERBAIKAN DI SINI ---
-  // Langsung baca data saat state dibuat
+  // REVISI: Baca localStorage langsung di useState (Lazy Init)
+  // Ini mencegah error setState di useEffect
   const [user] = useState(() => {
-    const stored = localStorage.getItem('user');
-    return stored ? JSON.parse(stored) : { namaLengkap: 'User', role: 'Guest' };
+    const storedUser = localStorage.getItem('user');
+    return storedUser ? JSON.parse(storedUser) : null;
   });
-  // -------------------------
 
-  return (
-    <div>
-      <h2 className="text-2xl font-bold text-gray-800 mb-6">Dashboard Overview</h2>
-      
-      {/* Kartu Selamat Datang */}
-      <div className="bg-gradient-to-r from-blue-600 to-blue-400 rounded-xl shadow-lg p-6 text-white mb-8">
-        <h3 className="text-xl font-semibold">Halo, {user.namaLengkap}! 👋</h3>
-        <p className="opacity-90 mt-1">
-          Anda login sebagai <span className="font-bold uppercase bg-white/20 px-2 py-0.5 rounded">{user.role}</span>.
-        </p>
-      </div>
+  if (!user) return null;
 
-      {/* Statistik Mockup Sederhana */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-          <p className="text-gray-500 text-sm">Total Pesanan</p>
-          <h4 className="text-2xl font-bold text-gray-800 mt-1">1,240</h4>
+  // --- LOGIC PEMILIHAN DASHBOARD ---
+  
+  if (user.role === 'admin') {
+    return <AdminDashboard />;
+  }
+  
+  if (user.role === 'manajer') {
+    return <ManagerDashboard />;
+  }
+  
+  if (user.role === 'operator' || user.role === 'desainer') {
+    if(user.role === 'operator') return <ProductionDashboard />;
+    
+    return <div className="p-10 text-center text-gray-500">Selamat datang, Desainer. Silakan akses menu Tugas Desainer.</div>;
+  }
+
+  if (user.role === 'kasir') {
+    return <div className="p-10">
+        <h1 className="text-3xl font-bold text-gray-800 mb-4">Halo, {user.namaLengkap} 👋</h1>
+        <p className="text-gray-500 mb-8">Selamat bertugas. Silakan pilih menu di samping.</p>
+        
+        {/* Shortcut Cepat */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <a href="/transactions/create" className="bg-blue-600 text-white p-6 rounded-xl shadow hover:bg-blue-700 transition text-center font-bold">
+                Buat Pesanan Baru
+            </a>
+            <a href="/customers" className="bg-white border p-6 rounded-xl shadow-sm hover:bg-gray-50 transition text-center font-bold text-gray-700">
+                Cek Pelanggan
+            </a>
         </div>
-        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-          <p className="text-gray-500 text-sm">Stok Menipis</p>
-          <h4 className="text-2xl font-bold text-orange-500 mt-1">5 Item</h4>
-        </div>
-        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-          <p className="text-gray-500 text-sm">Pendapatan Hari Ini</p>
-          <h4 className="text-2xl font-bold text-green-600 mt-1">Rp 2.500.000</h4>
-        </div>
-      </div>
-    </div>
-  );
+    </div>;
+  }
+
+  return <div className="p-10">Role tidak dikenali.</div>;
 };
 
 export default Dashboard;

@@ -12,6 +12,16 @@ import CreateTransaction from './pages/kasir/CreateTransaction';
 import InvoicePage from './pages/kasir/InvoicePage';
 import SelectCustomerForOrder from './pages/kasir/SelectCustomerForOrder';
 import DesignerDashboard from './pages/designer/DesignerDashboard';
+import ProductionDashboard from './pages/operator/ProductionDashboard';
+import InventoryPage from './pages/operator/InventoryPage';
+import OrderHistory from './pages/OrderHistory';
+import InventoryHistory from './pages/operator/InventoryHistory';
+import FinanceDashboard from './pages/kasir/FinanceDashboard';
+import FinanceHistory from './pages/kasir/FinanceHistory';
+import PaymentPage from './pages/kasir/PaymentPage';
+import ManagerDashboard from './pages/manajer/ManagerDashboard';
+import ManagerReports from './pages/manajer/ManagerReports';
+import ProductionReport from './pages/manajer/ProductionReport';
 
 function App() {
   return (
@@ -33,9 +43,25 @@ function App() {
           <Route path="transactions/new/:customerId" element={<CreateTransaction />} />
           <Route path="transactions/create" element={<SelectCustomerForOrder />} />
           <Route path="transactions/new/:customerId" element={<CreateTransaction />} />
+          <Route path="finance" element={<FinanceDashboard />} />
+          <Route path="finance/history" element={<FinanceHistory />} />
+          <Route path="payments" element={<PaymentPage />} />
 
           {/* Route Desainer */}
           <Route path="designer" element={<DesignerDashboard />} />
+
+          {/* Route Operator */}
+          <Route path="production" element={<ProductionDashboard />} />
+          <Route path="inventory" element={<InventoryPage />} />
+          <Route path="inventory/history" element={<InventoryHistory />} />
+
+          {/* Route Riwayat */}
+          <Route path="history" element={<OrderHistory />} />
+
+          {/* Route Manajer */}
+          <Route path="manager-dashboard" element={<ManagerDashboard />} />
+          <Route path="reports" element={<ManagerReports />} />
+          <Route path="reports/production" element={<ProductionReport />} />
         </Route>
 
         <Route path="/invoice/:transactionId" element={<InvoicePage />} />

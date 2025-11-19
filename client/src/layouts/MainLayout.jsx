@@ -9,7 +9,13 @@ import {
   Menu, 
   X, 
   ShoppingBag,
-  Palette
+  Palette,
+  Wrench,
+  CreditCard,
+  Wallet,
+  FileText,
+  TrendingUp,
+  Factory
 } from 'lucide-react';
 import Swal from 'sweetalert2';
 
@@ -54,12 +60,50 @@ const MainLayout = () => {
 
   const menus = [
     { name: 'Dashboard', path: '/', icon: <LayoutDashboard size={20} />, roles: ['admin', 'kasir', 'operator', 'manajer'] },
+    // --- MENU BARU EXECUTIVE ---
+    { 
+        name: 'Executive Summary', 
+        path: '/manager-dashboard', 
+        icon: <TrendingUp size={20} />, 
+        roles: ['admin', 'manajer'] 
+    },
+    { 
+        name: 'Pusat Laporan', 
+        path: '/reports', 
+        icon: <FileText size={20} />, // Gunakan icon FileText atau BrainCircuit
+        roles: ['admin', 'manajer'] 
+    },
     { name: 'Buat Pesanan', path: '/transactions/create', icon: <ShoppingBag size={20} />, roles: ['admin', 'kasir'] },
+    { 
+        name: 'Kasir & Ambil', // Atau "Pelunasan"
+        path: '/payments', 
+        icon: <CreditCard size={20} />, 
+        roles: ['admin', 'kasir'] 
+    },
+    // --- MENU RIWAYAT (BARU) ---
+    { 
+        name: 'Riwayat Pesanan', 
+        path: '/history', 
+        icon: <FileText size={20} />, 
+        roles: ['admin', 'kasir', 'manajer'] // Operator biasanya tidak perlu lihat nominal uang
+    },
+    { 
+        name: 'Keuangan', 
+        path: '/finance', 
+        icon: <Wallet size={20} />, 
+        roles: ['admin', 'kasir', 'manajer'] 
+    },
     { name: 'Data Pelanggan', path: '/customers', icon: <Users size={20} />, roles: ['admin', 'kasir'] },
     { name: 'Tugas Desainer', path: '/designer', icon: <Palette size={20} />, roles: ['admin', 'operator', 'manajer'] },
     { name: 'Manajemen User', path: '/users', icon: <Users size={20} />, roles: ['admin'] },
     { name: 'Manajemen Kemasan', path: '/packaging-types', icon: <Package size={20} />, roles: ['admin', 'manajer'] },
     { name: 'Produksi & Stok', path: '/inventory', icon: <Package size={20} />, roles: ['admin', 'operator', 'manajer'] },
+    { 
+        name: 'Area Produksi', 
+        path: '/production', 
+        icon: <Wrench size={20} />, 
+        roles: ['admin', 'operator', 'manajer'] 
+    },
   ];
 
   if (!user) return null;

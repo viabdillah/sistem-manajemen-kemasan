@@ -1,15 +1,14 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Plus, Pencil, Trash2, X, Package, PlusCircle, MinusCircle } from 'lucide-react';
 import Swal from 'sweetalert2';
+import { supabase } from '../../services/supabaseClient'; // Import Supabase
 
 const PackagingTypeManagement = () => {
-  // --- STATES ---
   const [types, setTypes] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalMode, setModalMode] = useState('add'); 
   
-  // State Form dengan array 'sizes' untuk varian
   const [formData, setFormData] = useState({
     id: '',
     name: '',
@@ -17,15 +16,21 @@ const PackagingTypeManagement = () => {
     sizes: [] 
   });
 
-  // --- FETCH DATA (READ) ---
+  // --- 1. FETCH DATA (READ) ---
   const fetchTypes = useCallback(async () => {
     try {
-      const response = await fetch('${import.meta.env.VITE_API_URL}/api/packaging-types');
-      const data = await response.json();
+      // Query Supabase: Select semua kolom, urutkan berdasarkan nama
+      const { data, error } = await supabase
+        .from('packaging_types')
+        .select('*')
+        .order('name', { ascending: true });
+
+      if (error) throw error;
+
       setTypes(data);
       setIsLoading(false);
     } catch (error) {
-      console.error('Gagal mengambil jenis kemasan:', error);
+      console.error('Error fetching types:', error.message);
       setIsLoading(false);
     }
   }, []);
@@ -35,40 +40,32 @@ const PackagingTypeManagement = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-
   // --- HANDLERS FORM ---
-  
-  // Buka Modal Tambah
   const handleAdd = () => {
     setModalMode('add');
-    // Default 1 baris kosong untuk ukuran agar user langsung paham
     setFormData({ id: '', name: '', description: '', sizes: [{ size: '', price: '' }] });
     setIsModalOpen(true);
   };
 
-  // Buka Modal Edit
   const handleEdit = (type) => {
     setModalMode('edit');
     setFormData({
-      id: type._id,
+      id: type.id, // Perhatikan: pakai 'id' bukan '_id'
       name: type.name,
-      description: type.description,
-      // Jika data lama tidak punya sizes, beri default kosong
+      description: type.description || '',
+      // Handle JSONB: Supabase mengembalikan array biasa, jadi aman
       sizes: type.sizes && type.sizes.length > 0 ? type.sizes : [{ size: '', price: '' }]
     });
     setIsModalOpen(true);
   };
 
-  // --- HANDLERS DYNAMIC INPUT (Ukuran & Harga) ---
-  
-  // Ubah value pada baris tertentu
+  // --- DYNAMIC INPUT HANDLERS ---
   const handleSizeChange = (index, field, value) => {
     const newSizes = [...formData.sizes];
     newSizes[index][field] = value;
     setFormData({ ...formData, sizes: newSizes });
   };
 
-  // Tambah baris baru
   const addSizeField = () => {
     setFormData({
       ...formData,
@@ -76,14 +73,12 @@ const PackagingTypeManagement = () => {
     });
   };
 
-  // Hapus baris tertentu
   const removeSizeField = (index) => {
     const newSizes = formData.sizes.filter((_, i) => i !== index);
     setFormData({ ...formData, sizes: newSizes });
   };
 
-  // --- ACTION HANDLERS (Delete & Submit) ---
-
+  // --- 2. DELETE DATA ---
   const handleDelete = async (id) => {
     const result = await Swal.fire({
       title: 'Hapus Jenis Kemasan?',
@@ -96,96 +91,89 @@ const PackagingTypeManagement = () => {
 
     if (result.isConfirmed) {
       try {
-        const response = await fetch(`${import.meta.env.VITE_API_URL}/api/packaging-types/${id}`, { method: 'DELETE' });
-        
-        if (response.ok) {
-            fetchTypes(); 
-            Swal.fire('Terhapus!', 'Jenis kemasan berhasil dihapus.', 'success');
-        } else {
-            const data = await response.json();
-            Swal.fire('Gagal!', data.message || 'Gagal menghapus jenis kemasan.', 'error');
-        }
+        const { error } = await supabase
+            .from('packaging_types')
+            .delete()
+            .eq('id', id);
+
+        if (error) throw error;
+
+        fetchTypes();
+        Swal.fire('Terhapus!', 'Data berhasil dihapus.', 'success');
       } catch (error) {
-        console.error("Error deleting type:", error); 
-        Swal.fire('Error', 'Tidak dapat terhubung ke server.', 'error');
+        console.error(error);
+        Swal.fire('Error', error.message, 'error');
       }
     }
   };
 
+  // --- 3. CREATE & UPDATE DATA ---
   const handleSubmit = async (e) => {
     e.preventDefault();
     
-    // Validasi: Filter baris yang kosong sebelum dikirim ke server
     const validSizes = formData.sizes.filter(s => s.size && s.price);
     
+    // Siapkan payload (data yang akan dikirim)
     const payload = {
-        ...formData,
-        sizes: validSizes
+        name: formData.name,
+        description: formData.description,
+        sizes: validSizes // Supabase otomatis convert array object ke JSONB
     };
 
-    const url = modalMode === 'add' 
-      ? '${import.meta.env.VITE_API_URL}/api/packaging-types' 
-      : `${import.meta.env.VITE_API_URL}/api/packaging-types/${formData.id}`;
-    
-    const method = modalMode === 'add' ? 'POST' : 'PUT';
-
     try {
-      const response = await fetch(url, {
-        method: method,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
+      let error;
+
+      if (modalMode === 'add') {
+        // INSERT
+        const { error: insertError } = await supabase
+            .from('packaging_types')
+            .insert([payload]);
+        error = insertError;
+      } else {
+        // UPDATE
+        const { error: updateError } = await supabase
+            .from('packaging_types')
+            .update(payload)
+            .eq('id', formData.id);
+        error = updateError;
+      }
+
+      if (error) throw error;
+
+      setIsModalOpen(false);
+      fetchTypes(); 
+      
+      Swal.fire({
+        icon: 'success', 
+        title: 'Berhasil!', 
+        text: 'Data berhasil disimpan.',
+        timer: 2000,
+        showConfirmButton: false,
       });
 
-      const data = await response.json();
-
-      if (response.ok) {
-        setIsModalOpen(false);
-        setFormData({ id: '', name: '', description: '', sizes: [] }); // Reset form
-        fetchTypes(); 
-        
-        Swal.fire({
-            icon: 'success', 
-            title: 'Berhasil!', 
-            text: modalMode === 'add' ? 'Jenis kemasan berhasil ditambah!' : 'Jenis kemasan berhasil diupdate!',
-            timer: 2000,
-            showConfirmButton: false,
-        });
-
-      } else {
-        Swal.fire({
-            icon: 'error', 
-            title: 'Gagal!', 
-            text: data.message,
-            confirmButtonText: 'OK'
-        });
-      }
     } catch (error) {
-      console.error('Error submit:', error);
-      Swal.fire({ icon: 'error', title: 'Kesalahan Server', text: 'Tidak dapat terhubung ke server API.' });
+      console.error('Error submit:', error.message);
+      Swal.fire({ icon: 'error', title: 'Gagal', text: error.message });
     }
   };
-
 
   return (
     <div className="space-y-6">
       
-      {/* Header Halaman */}
+      {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h2 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
-            <Package size={28}/> Manajemen Kemasan
+            <Package size={28}/> Manajemen Kemasan (Supabase)
           </h2>
           <p className="text-gray-500 text-sm">Atur jenis kemasan beserta varian ukuran dan harganya.</p>
         </div>
-        <button 
-          onClick={handleAdd}
-          className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 shadow-sm transition"
-        >
+        <button onClick={handleAdd} className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 shadow-sm transition">
           <Plus size={18} /> Tambah Jenis
         </button>
       </div>
 
-      {/* Tabel Jenis Kemasan */}
+      {/* Tabel */}
       {isLoading ? (
         <div className="text-center py-8">Memuat data...</div>
       ) : types.length === 0 ? (
@@ -202,17 +190,16 @@ const PackagingTypeManagement = () => {
             </thead>
             <tbody className="divide-y divide-gray-100">
               {types.map((type) => (
-                <tr key={type._id} className="hover:bg-gray-50 transition">
+                <tr key={type.id} className="hover:bg-gray-50 transition"> {/* Ganti _id jadi id */}
                   <td className="px-6 py-4 font-medium text-gray-800 align-top">
                     {type.name}
                     <div className="text-xs text-gray-400 font-normal mt-1">{type.description}</div>
                   </td>
                   <td className="px-6 py-4 text-gray-600">
-                    {/* Menampilkan Badges Varian */}
                     <div className="flex flex-wrap gap-2">
                       {type.sizes && type.sizes.map((s, idx) => (
                           <span key={idx} className="bg-blue-50 text-blue-700 px-2 py-1 rounded text-xs border border-blue-100 font-medium">
-                              {s.size} : Rp{s.price.toLocaleString('id-ID')}
+                              {s.size} : Rp{parseInt(s.price).toLocaleString('id-ID')}
                           </span>
                       ))}
                       {(!type.sizes || type.sizes.length === 0) && <span className="text-gray-400 italic text-sm">Tidak ada varian</span>}
@@ -222,7 +209,7 @@ const PackagingTypeManagement = () => {
                     <button onClick={() => handleEdit(type)} className="text-blue-500 hover:text-blue-700" title="Edit">
                       <Pencil size={18} />
                     </button>
-                    <button onClick={() => handleDelete(type._id)} className="text-red-500 hover:text-red-700" title="Hapus">
+                    <button onClick={() => handleDelete(type.id)} className="text-red-500 hover:text-red-700" title="Hapus"> {/* Ganti _id jadi id */}
                       <Trash2 size={18} />
                     </button>
                   </td>
@@ -233,12 +220,11 @@ const PackagingTypeManagement = () => {
         </div>
       )}
 
-      {/* MODAL FORM */}
+      {/* MODAL FORM (Sama Persis seperti sebelumnya) */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
           <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg overflow-hidden animate-fade-in flex flex-col max-h-[90vh]">
             
-            {/* Header Modal */}
             <div className="bg-gray-50 px-6 py-4 border-b border-gray-100 flex justify-between items-center shrink-0">
               <h3 className="font-bold text-lg text-gray-800">
                 {modalMode === 'add' ? 'Tambah Jenis Kemasan' : 'Edit Jenis Kemasan'}
@@ -246,7 +232,6 @@ const PackagingTypeManagement = () => {
               <button onClick={() => setIsModalOpen(false)} className="text-gray-400 hover:text-gray-600"><X size={20} /></button>
             </div>
 
-            {/* Body Modal (Scrollable) */}
             <form onSubmit={handleSubmit} className="p-6 space-y-4 overflow-y-auto custom-scrollbar">
               
               <div>
@@ -270,7 +255,6 @@ const PackagingTypeManagement = () => {
                 />
               </div>
 
-              {/* --- INPUT DINAMIS UKURAN --- */}
               <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
                 <label className="block text-sm font-bold text-gray-700 mb-2">Varian Ukuran & Harga</label>
                 
@@ -299,12 +283,10 @@ const PackagingTypeManagement = () => {
                                 />
                             </div>
                             
-                            {/* Tombol Hapus Baris */}
                             <button 
                                 type="button" 
                                 onClick={() => removeSizeField(index)} 
                                 className="text-red-400 hover:text-red-600 p-1 hover:bg-red-50 rounded"
-                                title="Hapus baris ini"
                             >
                                 <MinusCircle size={20} />
                             </button>
@@ -320,7 +302,6 @@ const PackagingTypeManagement = () => {
                     <PlusCircle size={16} /> Tambah Varian Lain
                 </button>
               </div>
-              {/* --------------------------- */}
 
               <div className="pt-2 flex justify-end gap-3">
                 <button type="button" onClick={() => setIsModalOpen(false)} className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 font-medium">Batal</button>

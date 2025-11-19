@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Search, User, ArrowRight, PlusCircle } from 'lucide-react';
+import { supabase } from '../../services/supabaseClient'; // Import Supabase
 
 const SelectCustomerForOrder = () => {
   const navigate = useNavigate();
@@ -9,13 +10,23 @@ const SelectCustomerForOrder = () => {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    fetch('/api/customers')
-      .then(res => res.json())
-      .then(data => {
+    const fetchCustomers = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('customers')
+          .select('*')
+          .order('created_at', { ascending: false });
+
+        if (error) throw error;
         setCustomers(data);
+      } catch (error) {
+        console.error('Error fetching customers:', error.message);
+      } finally {
         setIsLoading(false);
-      })
-      .catch(err => console.error(err));
+      }
+    };
+
+    fetchCustomers();
   }, []);
 
   // Filter pencarian
@@ -27,19 +38,16 @@ const SelectCustomerForOrder = () => {
   return (
     <div className="space-y-6">
       
-      {/* Header */}
+      {/* Header dengan Search Bar Glassmorphism */}
       <div className="bg-gradient-to-r from-blue-600 to-blue-800 p-6 rounded-2xl shadow-lg text-white">
         <h2 className="text-2xl font-bold mb-2">Buat Pesanan Baru</h2>
         <p className="text-blue-100 text-sm opacity-90">Pilih pelanggan untuk memulai transaksi.</p>
         
-        {/* Search Bar */}
         <div className="mt-8 relative group max-w-2xl">
-            {/* Ikon Search: Berubah warna saat input aktif */}
             <Search 
                 className="absolute left-4 top-1/2 -translate-y-1/2 text-blue-200 group-focus-within:text-white transition-colors duration-300" 
                 size={22} 
             />
-            
             <input 
                 type="text" 
                 placeholder="Cari nama atau nomor telepon pelanggan..." 
@@ -52,20 +60,12 @@ const SelectCustomerForOrder = () => {
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
             />
-            
-            {/* Optional: Hint kecil di kanan */}
-            <div className="absolute right-4 top-1/2 -translate-y-1/2 hidden sm:block">
-                <span className="bg-white/20 text-blue-100 text-xs px-2 py-1 rounded border border-white/10">
-                    Ketik untuk cari
-                </span>
-            </div>
         </div>
       </div>
 
       {/* Daftar Pelanggan */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         
-        {/* Kartu Tambah Pelanggan Baru (Shortcut) */}
         <div 
             onClick={() => navigate('/customers')}
             className="border-2 border-dashed border-blue-300 rounded-xl p-6 flex flex-col items-center justify-center text-blue-500 cursor-pointer hover:bg-blue-50 transition h-40"
@@ -82,8 +82,8 @@ const SelectCustomerForOrder = () => {
         ) : (
             filteredCustomers.map(customer => (
                 <div 
-                    key={customer._id}
-                    onClick={() => navigate(`/transactions/new/${customer._id}`)}
+                    key={customer.id} // Ganti _id jadi id
+                    onClick={() => navigate(`/transactions/new/${customer.id}`)}
                     className="bg-white p-5 rounded-xl shadow-sm border border-gray-100 hover:shadow-md hover:border-blue-200 cursor-pointer transition group relative overflow-hidden"
                 >
                     <div className="flex items-start justify-between">
@@ -99,7 +99,6 @@ const SelectCustomerForOrder = () => {
                         </div>
                     </div>
                     
-                    {/* Efek panah saat hover */}
                     <div className="absolute bottom-0 right-0 p-3 opacity-0 group-hover:opacity-100 transition-opacity">
                         <ArrowRight size={18} className="text-blue-500"/>
                     </div>
